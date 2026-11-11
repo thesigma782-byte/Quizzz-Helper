@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fight or Fight - 2D Stickman Fighter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { background-color: #0d0f12; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+    
+    /* UI Screens */
+    .screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: none; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* Buttons & Controls */
+    button { background: #1f242d; color: #00ffcc; border: 2px solid #00ffcc; border-radius: 6px; padding: 10px 20px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; font-size: 16px; text-transform: uppercase; }
+    button:hover { background: #00ffcc; color: #0d0f12; box-shadow: 0 0 12px rgba(0,255,204,0.6); }
+    button:active { transform: scale(0.96); }
+
+    /* Main Menu */
+    #main-menu { background: linear-gradient(135deg, #090a0f 0%, #171b26 100%); padding: 50px; justify-content: center; }
+    .menu-title { font-size: 64px; font-weight: 900; color: #00ffcc; text-shadow: 0 0 20px rgba(0,255,204,0.4); margin-bottom: 40px; letter-spacing: 2px; }
+    .menu-buttons { display: flex; flex-direction: column; gap: 20px; width: 260px; }
+
+    /* Settings Screen */
+    #settings-screen { background: #12151c; padding: 40px; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; max-width: 900px; }
+    .setting-group { background: #1a1e29; padding: 20px; border-radius: 8px; border: 1fr solid #2a3142; }
+    .setting-group h3 { color: #00ffcc; margin-bottom: 15px; border-bottom: 1px solid #2a3142; padding-bottom: 5px; }
+    .slider-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    .slider-container input[type="range"] { width: 60%; accent-color: #00ffcc; }
+    .key-bind { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #abb2bf; }
+    .key-bind span { color: #00ffcc; font-weight: bold; background: #0d0f12; padding: 2px 8px; border-radius: 4px; }
+
+    /* Character List Screen */
+    #char-select-screen { background: #12151c; padding: 40px; }
+    .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 30px; }
+    .char-card { background: #1a1e29; border: 2px solid #2a3142; border-radius: 8px; padding: 20px; text-align: center; position: relative; transition: 0.2s; }
+    .char-card:hover { border-color: #00ffcc; }
+    .char-card .avatar-preview { width: 80px; height: 100px; margin: 0 auto 15px; background: #0d0f12; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .char-card-actions { display: flex; gap: 8px; margin-top: 15px; }
+    .char-card-actions button { font-size: 12px; padding: 6px 10px; flex: 1; }
+
+    /* Character Editor */
+    #editor-screen { background: #0b0d13; display: grid; grid-template-rows: 60px 1fr 120px; grid-template-columns: 240px 1fr 280px; height: 100vh; }
+    .editor-top { grid-column: 1 / -1; background: #141824; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #252b3b; }
+    .editor-left { background: #141824; border-right: 1px solid #252b3b; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+    .editor-center { position: relative; background: #0d0f12; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .editor-right { background: #141824; border-left: 1px solid #252b3b; padding: 20px; }
+    .editor-bottom { grid-column: 1 / -1; background: #141824; border-top: 1px solid #252b3b; padding: 15px 20px; display: flex; align-items: center; gap: 20px; }
+    
+    .slot-btn { width: 100%; text-align: left; padding: 8px 12px; font-size: 13px; background: #1e2333; border: 1px solid #2d354d; color: #d0d7de; }
+    .slot-btn.active { border-color: #00ffcc; color: #00ffcc; background: #16242c; }
+
+    .tool-palette { display: flex; gap: 10px; margin-bottom: 10px; }
+    .tool-btn { padding: 8px; flex: 1; font-size: 12px; }
+    .tool-btn.active { background: #00ffcc; color: #0d0f12; }
+
+    /* Canvas Elements */
+    canvas { background: transparent; }
+
+    /* Gameplay Canvas & Overlay */
+    #game-container { position: relative; width: 100vw; height: 100vh; }
+    #gameCanvas { width: 100%; height: 100%; background: #090a0f; display: block; }
+    .pause-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
+    
+    /* Modal */
+    .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; }
+    .modal-content { background: #1a1e29; padding: 30px; border-radius: 8px; border: 1px solid #00ffcc; text-align: center; }
+    .modal-buttons { display: flex; gap: 15px; margin-top: 20px; justify-content: center; }
+  </style>
+</head>
+<body>
+
+  <!-- MAIN MENU -->
+  <div id="main-menu" class="screen active">
+    <div class="menu-title">FIGHT OR FIGHT</div>
+    <div class="menu-buttons">
+      <button id="btn-play">PLAY</button>
+      <button id="btn-characters">CHARACTERS</button>
+      <button id="btn-settings">SETTINGS</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings-screen" class="screen">
+    <h2>SETTINGS</h2>
+    <div class="settings-grid">
+      <div class="setting-group">
+        <h3>AUDIO & SFX</h3>
+        <div class="slider-container">
+          <label>SFX Volume</label>
+          <input type="range" id="sfx-slider" min="0" max="100" value="80">
+        </div>
+        <div class="slider-container">
+          <label>Audio Volume</label>
+          <input type="range" id="audio-slider" min="0" max="100" value="60">
+        </div>
+      </div>
+      <div class="setting-group">
+        <h3>CONTROLS</h3>
+        <div class="key-bind"><span>Move Left</span><span>A</span></div>
+        <div class="key-bind"><span>Move Right</span><span>D</span></div>
+        <div class="key-bind"><span>Jump</span><span>W / Space</span></div>
+        <div class="key-bind"><span>Aim (Long Range)</span><span>Right Click</span></div>
+        <div class="key-bind"><span>Attack</span><span>Left Click</span></div>
+        <div class="key-bind"><span>Switch Attack</span><span>Scroll / 1, 2, 3</span></div>
+        <div class="key-bind"><span>Defence</span><span>Q</span></div>
+        <div class="key-bind"><span>Dash</span><span>Shift</span></div>
+      </div>
+    </div>
+    <div style="margin-top: 30px; display: flex; gap: 15px;">
+      <button id="settings-apply">APPLY</button>
+      <button id="settings-reset">RESET</button>
+      <button id="settings-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- CHARACTER SELECTION / LIST -->
+  <div id="char-select-screen" class="screen">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>CHARACTERS</h2>
+      <button id="btn-add-char">+ CREATE NEW</button>
+    </div>
+    <div class="char-grid" id="char-grid"></div>
+    <div style="margin-top: auto; padding-top: 20px;">
+      <button id="char-back">BACK</button>
+    </div>
+  </div>
+
+  <!-- CHARACTER EDITOR -->
+  <div id="editor-screen" class="screen">
+    <!-- Top Bar -->
+    <div class="editor-top">
+      <button id="editor-back">BACK</button>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label>NAME:</label>
+        <input type="text" id="char-name-input" value="Stickman_1" style="background: #0d0f12; color: #fff; border: 1px solid #2a3142; padding: 5px 10px; border-radius: 4px;">
+      </div>
+      <button id="editor-save">SAVE</button>
+    </div>
+
+    <!-- Left Sidebar: Moves & Tools -->
+    <div class="editor-left">
+      <h4 style="color: #00ffcc; font-size: 14px;">MOVES SLOTS</h4>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <button class="slot-btn active" data-slot="rest">Resting Pose</button>
+        <button class="slot-btn" data-slot="walk">Walking</button>
+        <button class="slot-btn" data-slot="dash">Dash</button>
+        <button class="slot-btn" data-slot="att1">Attack 1 (+)</button>
+        <button class="slot-btn" data-slot="att2">Attack 2 (+)</button>
+        <button class="slot-btn" data-slot="att3">Attack 3 (+)</button>
+        <button class="slot-btn" data-slot="def">Defence</button>
+      </div>
+
+      <h4 style="color: #00ffcc; font-size: 14px; margin-top: 15px;">PAINT TOOLS</h4>
+      <div class="tool-palette">
+        <button class="tool-btn active" id="tool-brush">Brush</button>
+        <button class="tool-btn" id="tool-bucket">Bucket</button>
+        <button class="tool-btn" id="tool-eraser">Eraser</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px;">Color:</label>
+        <input type="color" id="stick-color" value="#00ffcc">
+      </div>
+
+      <div id="weapon-selector" style="display: none; margin-top: 15px;">
+        <h4 style="color: #00ffcc; font-size: 14px;">WEAPON SELECTION</h4>
+        <select id="weapon-type" style="width: 100%; background: #0d0f12; color: #fff; border: 1px solid #2a3142; padding: 6px; margin-top: 5px;">
+          <option value="none">Short Range (Fists/Legs)</option>
+          <option value="gun">Gun (Long Range)</option>
+          <option value="spear">Spear (Long Range)</option>
+          <option value="stone">Stone (Long Range)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Center Canvas Workspace -->
+    <div class="editor-center">
+      <canvas id="editorCanvas" width="600" height="500"></canvas>
+    </div>
+
+    <!-- Right Sidebar: Damage & Hitbox Settings -->
+    <div class="editor-right">
+      <h4 style="color: #00ffcc; font-size: 14px; margin-bottom: 15px;">STATS & DAMAGE</h4>
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div>
+          <label style="font-size: 12px;">Main Body Damage (Max 20):</label>
+          <input type="range" id="body-dmg" min="1" max="20" value="10" style="width: 100%; accent-color: #00ffcc;">
+          <span id="body-dmg-val" style="font-size: 12px; color: #00ffcc;">10 DMG</span>
+        </div>
+        <div>
+          <label style="font-size: 12px;">Headshot Damage (Max 30):</label>
+          <input type="range" id="head-dmg" min="1" max="30" value="20" style="width: 100%; accent-color: #ff4757;">
+          <span id="head-dmg-val" style="font-size: 12px; color: #ff4757;">20 DMG</span>
+        </div>
+        <div style="margin-top: 10px; background: #0d0f12; padding: 10px; border-radius: 6px; font-size: 11px; color: #888;">
+          Joint Controls: Drag joints on canvas to pose keyframes. Set attack release frame below.
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar: Timeline Animator -->
+    <div class="editor-bottom">
+      <span style="font-size: 12px; font-weight: bold; color: #00ffcc;">KEYFRAME ANIMATOR</span>
+      <button id="add-keyframe-btn" style="font-size: 12px; padding: 4px 10px;">+ Add Keyframe</button>
+      <div id="keyframes-timeline" style="display: flex; gap: 8px; overflow-x: auto; flex: 1;">
+        <!-- Keyframe Nodes -->
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMEPLAY CANVAS -->
+  <div id="game-container" class="screen">
+    <canvas id="gameCanvas"></canvas>
+    <div class="pause-menu" id="pause-menu">
+      <h2 style="color: #00ffcc; font-size: 36px;">PAUSED</h2>
+      <button id="pause-continue">CONTINUE</button>
+      <button id="pause-leave">LEAVE</button>
+    </div>
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div class="modal" id="modal-confirm">
+    <div class="modal-content">
+      <p id="modal-text">Save changes before exiting?</p>
+      <div class="modal-buttons">
+        <button id="modal-yes">YES</button>
+        <button id="modal-no">NO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOT DIFFICULTY MODAL -->
+  <div class="modal" id="modal-difficulty">
+    <div class="modal-content">
+      <h3 style="color: #00ffcc; margin-bottom: 15px;">SELECT BOT DIFFICULTY</h3>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="diff-btn" data-diff="easy">EASY BOT</button>
+        <button class="diff-btn" data-diff="mid">MEDIUM BOT</button>
+        <button class="diff-btn" data-diff="hard">HARD BOT</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System State & Saved Characters
+    let characters = [
+      { name: "Default Fighter", color: "#00ffcc", headDmg: 20, bodyDmg: 10, weapon: "none" }
+    ];
+    let activeCharIndex = 0;
+    let isTestMode = false;
+    let currentBotDiff = "easy";
+
+    // Navigation Helper
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // Main Menu Hooks
+    document.getElementById('btn-play').onclick = () => document.getElementById('modal-difficulty').style.display = 'flex';
+    document.getElementById('btn-characters').onclick = () => { renderCharList(); showScreen('char-select-screen'); };
+    document.getElementById('btn-settings').onclick = () => showScreen('settings-screen');
+    
+    // Settings Hooks
+    document.getElementById('settings-back').onclick = () => showScreen('main-menu');
+    document.getElementById('settings-apply').onclick = () => showScreen('main-menu');
+    document.getElementById('settings-reset').onclick = () => {
+      document.getElementById('sfx-slider').value = 80;
+      document.getElementById('audio-slider').value = 60;
+    };
+
+    // Character Grid UI
+    function renderCharList() {
+      const grid = document.getElementById('char-grid');
+      grid.innerHTML = '';
+      characters.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.className = 'char-card';
+        card.innerHTML = `
+          <div class="avatar-preview">
+            <svg width="40" height="60">
+              <circle cx="20" cy="15" r="8" fill="${c.color}"/>
+              <line x1="20" y1="23" x2="20" y2="45" stroke="${c.color}" stroke-width="3"/>
+              <line x1="10" y1="30" x2="30" y2="30" stroke="${c.color}" stroke-width="3"/>
+              <line x1="20" y1="45" x2="10" y2="58" stroke="${c.color}" stroke-width="3"/>
+              <line x1="20" y1="45" x2="30" y2="58" stroke="${c.color}" stroke-width="3"/>
+            </svg>
+          </div>
+          <h4>${c.name}</h4>
+          <div class="char-card-actions">
+            <button onclick="editChar(${idx})">EDIT</button>
+            <button onclick="testChar(${idx})">TEST</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    document.getElementById('btn-add-char').onclick = () => {
+      characters.push({ name: `Fighter_${characters.length + 1}`, color: "#ff4757", headDmg: 25, bodyDmg: 12, weapon: "gun" });
+      editChar(characters.length - 1);
+    };
+    document.getElementById('char-back').onclick = () => showScreen('main-menu');
+
+    // Editor Logic
+    function editChar(idx) {
+      activeCharIndex = idx;
+      const c = characters[idx];
+      document.getElementById('char-name-input').value = c.name;
+      document.getElementById('stick-color').value = c.color;
+      document.getElementById('head-dmg').value = c.headDmg;
+      document.getElementById('body-dmg').value = c.bodyDmg;
+      document.getElementById('head-dmg-val').innerText = `${c.headDmg} DMG`;
+      document.getElementById('body-dmg-val').innerText = `${c.bodyDmg} DMG`;
+      document.getElementById('weapon-type').value = c.weapon || "none";
+      showScreen('editor-screen');
+      drawEditorStickman();
+    }
+
+    function testChar(idx) {
+      activeCharIndex = idx;
+      isTestMode = true;
+      showScreen('game-container');
+      initGame();
+    }
+
+    // Modal logic
+    document.getElementById('editor-back').onclick = () => {
+      document.getElementById('modal-confirm').style.display = 'flex';
+    };
+    document.getElementById('modal-yes').onclick = () => {
+      saveEditorChanges();
+      document.getElementById('modal-confirm').style.display = 'none';
+      renderCharList();
+      showScreen('char-select-screen');
+    };
+    document.getElementById('modal-no').onclick = () => {
+      document.getElementById('modal-confirm').style.display = 'none';
+      renderCharList();
+      showScreen('char-select-screen');
+    };
+    document.getElementById('editor-save').onclick = () => {
+      saveEditorChanges();
+      alert("Changes saved!");
+    };
+
+    function saveEditorChanges() {
+      const c = characters[activeCharIndex];
+      c.name = document.getElementById('char-name-input').value;
+      c.color = document.getElementById('stick-color').value;
+      c.headDmg = parseInt(document.getElementById('head-dmg').value);
+      c.bodyDmg = parseInt(document.getElementById('body-dmg').value);
+      c.weapon = document.getElementById('weapon-type').value;
+    }
+
+    // Editor Canvas Drawing
+    const editorCanvas = document.getElementById('editorCanvas');
+    const edCtx = editorCanvas.getContext('2d');
+    
+    document.getElementById('head-dmg').oninput = (e) => document.getElementById('head-dmg-val').innerText = `${e.target.value} DMG`;
+    document.getElementById('body-dmg').oninput = (e) => document.getElementById('body-dmg-val').innerText = `${e.target.value} DMG`;
+
+    function drawEditorStickman() {
+      edCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+      const color = document.getElementById('stick-color').value;
+      
+      // Canvas Stickman Pose
+      edCtx.strokeStyle = color;
+      edCtx.fillStyle = color;
+      edCtx.lineWidth = 4;
+      edCtx.lineCap = 'round';
+
+      const cx = editorCanvas.width / 2;
+      const cy = editorCanvas.height / 2 - 20;
+
+      // Head
+      edCtx.beginPath();
+      edCtx.arc(cx, cy - 50, 16, 0, Math.PI * 2);
+      edCtx.fill();
+
+      // Body
+      edCtx.beginPath();
+      edCtx.moveTo(cx, cy - 34);
+      edCtx.lineTo(cx, cy + 40);
+      edCtx.stroke();
+
+      // Arms
+      edCtx.beginPath();
+      edCtx.moveTo(cx, cy - 20);
+      edCtx.lineTo(cx - 30, cy + 10);
+      edCtx.moveTo(cx, cy - 20);
+      edCtx.lineTo(cx + 35, cy - 10);
+      edCtx.stroke();
+
+      // Legs
+      edCtx.beginPath();
+      edCtx.moveTo(cx, cy + 40);
+      edCtx.lineTo(cx - 20, cy + 90);
+      edCtx.moveTo(cx, cy + 40);
+      edCtx.lineTo(cx + 25, cy + 90);
+      edCtx.stroke();
+    }
+
+    document.getElementById('stick-color').oninput = drawEditorStickman;
+
+    // Difficulty Handler
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.onclick = () => {
+        currentBotDiff = btn.dataset.diff;
+        document.getElementById('modal-difficulty').style.display = 'none';
+        isTestMode = false;
+        showScreen('game-container');
+        initGame();
+      };
+    });
+
+    // GAMEPLAY ENGINE
+    const gameCanvas = document.getElementById('gameCanvas');
+    const ctx = gameCanvas.getContext('2d');
+    let gameLoopReq;
+
+    let player = { x: 150, y: 350, vx: 0, vy: 0, hp: 100, isGrounded: false, color: "#00ffcc" };
+    let bot = { x: 600, y: 350, vx: 0, vy: 0, hp: 100, isGrounded: false, color: "#ff4757" };
+    let keys = {};
+
+    window.addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+      if (e.key === "Escape" && document.getElementById('game-container').classList.contains('active')) {
+        const pm = document.getElementById('pause-menu');
+        pm.style.display = pm.style.display === 'flex' ? 'none' : 'flex';
+      }
+    });
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    document.getElementById('pause-continue').onclick = () => document.getElementById('pause-menu').style.display = 'none';
+    document.getElementById('pause-leave').onclick = () => {
+      cancelAnimationFrame(gameLoopReq);
+      document.getElementById('pause-menu').style.display = 'none';
+      showScreen('main-menu');
+    };
+
+    function initGame() {
+      gameCanvas.width = window.innerWidth;
+      gameCanvas.height = window.innerHeight;
+      player.x = 200;
+      player.y = gameCanvas.height - 150;
+      player.hp = 100;
+      player.color = characters[activeCharIndex].color;
+
+      bot.x = gameCanvas.width - 200;
+      bot.y = gameCanvas.height - 150;
+      bot.hp = 100;
+
+      gameLoop();
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      gameLoopReq = requestAnimationFrame(gameLoop);
+    }
+
+    function update() {
+      // Player Controls
+      if (keys['a']) player.vx = -5;
+      else if (keys['d']) player.vx = 5;
+      else player.vx = 0;
+
+      if ((keys['w'] || keys[' ']) && player.isGrounded) {
+        player.vy = -12;
+        player.isGrounded = false;
+      }
+
+      // Physics
+      player.vy += 0.5;
+      player.x += player.vx;
+      player.y += player.vy;
+
+      const floor = gameCanvas.height - 100;
+      if (player.y >= floor) {
+        player.y = floor;
+        player.vy = 0;
+        player.isGrounded = true;
+      }
+
+      // Simple AI for Bot
+      if (!isTestMode) {
+        if (bot.x > player.x + 80) bot.x -= currentBotDiff === 'hard' ? 3 : 1.5;
+        else if (bot.x < player.x - 80) bot.x += currentBotDiff === 'hard' ? 3 : 1.5;
+      }
+      bot.y = floor;
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Arena Floor
+      ctx.strokeStyle = "#2a3142";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, gameCanvas.height - 80);
+      ctx.lineTo(gameCanvas.width, gameCanvas.height - 80);
+      ctx.stroke();
+
+      // Draw Player & Bot
+      drawFighter(player.x, player.y, player.color, "P1");
+      drawFighter(bot.x, bot.y, bot.color, isTestMode ? "DUMMY" : `BOT (${currentBotDiff.toUpperCase()})`);
+
+      // Draw UI / Health Bars
+      drawHealthBar(50, 40, player.hp, "PLAYER 1");
+      drawHealthBar(gameCanvas.width - 250, 40, bot.hp, isTestMode ? "TEST DUMMY" : "OPPONENT");
+    }
+
+    function drawFighter(x, y, color, label) {
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 4;
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(x, y - 50, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(x, y - 36);
+      ctx.lineTo(x, y + 10);
+      ctx.stroke();
+
+      // Limbs
+      ctx.beginPath();
+      ctx.moveTo(x, y - 24);
+      ctx.lineTo(x - 20, y);
+      ctx.moveTo(x, y - 24);
+      ctx.lineTo(x + 20, y);
+      ctx.moveTo(x, y + 10);
+      ctx.lineTo(x - 15, y + 40);
+      ctx.moveTo(x, y + 10);
+      ctx.lineTo(x + 15, y + 40);
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = "#fff";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(label, x - 20, y - 75);
+    }
+
+    function drawHealthBar(x, y, hp, name) {
+      ctx.fillStyle = "#1a1e29";
+      ctx.fillRect(x, y, 200, 20);
+      ctx.fillStyle = "#00ffcc";
+      ctx.fillRect(x, y, (hp / 100) * 200, 20);
+      ctx.strokeStyle = "#fff";
+      ctx.strokeRect(x, y, 200, 20);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(name, x, y - 6);
+    }
+  </script>
+</body>
+</html>
